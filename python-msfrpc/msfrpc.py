@@ -9,7 +9,7 @@
 # You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import msgpack
-import http.client as httplib
+import http.client as httplib  # python3的httplib为http.client
 
 
 class Msfrpc:
@@ -26,7 +26,7 @@ class Msfrpc:
 
     def __init__(self, opts=[]):
         self.host = opts.get('host') or "127.0.0.1"
-        self.port = opts.get('port') or 55552
+        self.port = opts.get('port') or 55553
         self.uri = opts.get('uri') or "/api/"
         self.ssl = opts.get('ssl') or False
         self.authenticated = False
@@ -38,10 +38,12 @@ class Msfrpc:
             self.client = httplib.HTTPConnection(self.host, self.port)
 
     def encode(self, data):
-        return msgpack.packb(data)
+        return msgpack.packb(data, use_bin_type=True)
 
     def decode(self, data):
-        return msgpack.unpackb(data)
+        result = msgpack.unpackb(data, raw=False)
+        result = self.convert(result)
+        return result
 
     def call(self, meth, opts=[]):
         if meth != "auth.login":
@@ -59,12 +61,23 @@ class Msfrpc:
 
     def login(self, user, password):
         ret = self.call('auth.login', [user, password])
-        if ret.get(b'result') == b'success':
+        ret = self.convert(ret)
+        if ret.get('result') == 'success':
             self.authenticated = True
-            self.token = ret.get(b'token')
+            self.token = ret.get('token')
             return True
         else:
             raise self.MsfAuthError("MsfRPC: Authentication failed")
+    
+    def convert(self, data):
+        """convert dict from bytes to str"""
+        if isinstance(data, bytes):  
+            return data.decode('utf-8')
+        if isinstance(data, dict):   
+            return dict(map(self.convert, data.items()))
+        if isinstance(data, tuple):  
+            return map(self.convert, data)
+        return data
 
 
 if __name__ == '__main__':
@@ -79,9 +92,10 @@ if __name__ == '__main__':
     mod = client.call('module.exploits')
     # print(mod)
     # Grab the first item from the modules value of the returned dict
-    print("Compatible payloads for : %s\n" % mod[b'modules'][0].decode('utf-8'))
+    print("Compatible payloads for : %s\n" % mod['modules'][0])
 
     # Get the list of compatible payloads for the first option
-    ret = client.call('module.compatible_payloads', [mod[b'modules'][0]])
-    for i in (ret.get(b'payloads')):
-        print("\t%s" % i.decode('utf-8'))
+    ret = client.call('module.compatible_payloads', [mod['modules'][0]])
+    # print(ret)
+    for i in (ret.get('payloads')):
+        print("\t%s" % i)
