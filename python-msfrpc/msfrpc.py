@@ -24,7 +24,7 @@ class Msfrpc:
         def __init__(self, msg):
             self.msg = msg
 
-    def __init__(self, opts=[]):
+    def __init__(self, opts={}):
         self.host = opts.get('host') or "127.0.0.1"
         self.port = opts.get('port') or 55553
         self.uri = opts.get('uri') or "/api/"
